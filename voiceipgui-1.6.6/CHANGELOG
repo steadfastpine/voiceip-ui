@@ -1,0 +1,146 @@
+
+
+
+
+
+1.5.5
+
+* added did.auto.conf creation to ./config
+
+* update generate_asterisk.php to use last 4 of did as well as full string
+
+* automatic placement of "#include /etc/asterisk/did.auto.conf" in file extensions.conf
+
+* remove dashes from did field at file write to did.auto.conf
+
+
+-----------------
+
+
+1.5.4
+
+voicepass.php
+
+* added inclusive matching string " => " to prevent multiple extension matches in voicemail.conf
+
+
+-----------------
+
+
+1.5.3
+
+* sort order on operator panel display changed to panel asc, for alphabetical display
+
+* include file httpd.voiceipgui.conf changed to work with apache below 2.4
+
+* repaired gmt offset, now written to polycom files
+
+* updating a sip or polycom setting now sets modified to 1 for all extentions with that setting
+
+
+-----------------
+
+
+1.6.2
+
+* version level increased to 1.6, for fedora 20+. For Fc14, is 1.5
+
+
+-----------------
+
+
+1.5.2
+
+* apache 2.4
+* bug fixes
+
+-----------------
+
+
+1.3.18
+
+* fixed training comma in cdr installation - file configure
+
+
+-----------------
+
+
+1.3.21
+
+* added "in voicemail directory field"
+
+When set to "off", the text "hidefromdir=yes" is added to file voicemail.conf
+
+
+-----------------
+
+
+1.4.1
+
+## extensions table 
+
+* column sorting
+* selection checkboxes
+* "select all" checked extensions button (javascript)
+* "delete all" checked extensions button
+* edit checked extensions options
+* search field (ajax)
+* registration lights, green for active
+* iax checkbox added
+* converted sip, voicemail, and voicemail directory options to checkboxes
+
+## public directory
+
+* extension, did, firstname, lastname
+* recording lines
+* voicemail access
+
+* include file iax.conf
+
+
+-----------------
+
+
+1.4.2
+
+## build admin page
+
+* populate extensions database from asterisk files
+
+
+-----------------
+
+
+1.4.3
+
+* previous database reverse compatibility
+
+
+-----------------
+
+
+1.4.4
+
+* AMI reload replaced with single page php connection
+* file generation script qa
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

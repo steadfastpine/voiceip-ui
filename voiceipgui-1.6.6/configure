@@ -1,0 +1,569 @@
+#!/bin/bash
+
+#exit
+
+# check if root user
+if ! id | grep -q "uid=0(root)" ; then
+    print "ERROR:  must be root in order to run this script"
+    exit 1
+fi
+
+asterisk_full="0"
+while getopts "ah" opt; do
+  case $opt in
+    a)
+      
+      echo "#"
+      echo "# installer: latest asterisk packages will be downloaded from digium and installed"
+      asterisk_full="1"
+      ;;
+    h)
+      
+      echo "# By default the configure script will install dependencies and the graphic interface."
+      echo ""
+      
+      echo "switches	description"
+      echo "-a		download and install latest 1.6 Asterisk platform from Digium"
+      echo "-h		help document"
+      
+      exit
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG"
+     exit
+      ;;
+  esac
+done
+
+
+datevar=$(date +%Y-%m-%d:%H:%M:%S)
+version=$(basename `pwd`)
+ftpuser="PlcmSpIp"
+versionnumber=$(echo ${version#*-})
+version_dbformat=$(echo $versionnumber|sed 's/-/_/g;s/\./_/g;')
+dbname="voiceipgui_db_$version_dbformat"
+
+echo "
+
+
+
+ __      __   _          _____ _____     _____ _    _ _____ 
+ \ \    / /  (_)        |_   _|  __ \   / ____| |  | |_   _|
+  \ \  / /__  _  ___ ___  | | | |__) | | |  __| |  | | | |  
+   \ \/ / _ \| |/ __/ _ \ | | |  ___/  | | |_ | |  | | | |  
+    \  / (_) | | (_|  __/_| |_| |      | |__| | |__| |_| |_ 
+     \/ \___/|_|\___\___|_____|_|       \_____|\____/|_____|
+     
+                                                            
+     version: $versionnumber  
+                                                          
+
+"
+
+echo "# installer start"
+echo "#"
+
+#if [ -d "/var/www/html" ];then
+#mv /var/www/html /var/www/html.backup-$datevar 2>/dev/nul
+#unlink /var/www/html 2>/dev/nul
+#fi
+
+echo "# cleaning /usr/src/$version/modules/tmp/*"
+rm -rf /usr/src/$version/modules/tmp/*
+
+echo "# cleaning /usr/src/$version/modules/backup/*"
+rm -rf /usr/src/$version/modules/backup/*
+
+echo "# cleaning /usr/src/$version/modules/passwd/*"
+rm -rf /usr/src/$version/modules/passwd/*
+
+echo "# cleaning /usr/src/$version/modules/output/polycom/*"
+rm -rf /usr/src/$version/modules/output/polycom/*
+
+echo "# cleaning /usr/src/$version/modules/output/*.conf"
+rm -rf /usr/src/$version/modules/output/*.conf
+
+echo "# cleaning /usr/src/$version/modules/upload/bulk_data.csv"
+rm -f /usr/src/$version/modules/upload/bulk_data.csv
+touch /usr/src/$version/modules/upload/bulk_data.csv
+
+echo "# restore link: ln -s /var/lib/voiceipgui/restore /var/lib/voiceipgui/$version/modules/lib/restore.bash"
+unlink /var/lib/voiceipgui/restore 2> /dev/null
+ln -s /var/lib/voiceipgui/$version/modules/lib/restore.bash /var/lib/voiceipgui/restore
+
+if [ ! -d "/var/lib/voiceipgui" ];then
+    mkdir /var/lib/voiceipgui
+fi
+
+if [ ! -d "/var/www/html" ];then
+    mkdir /var/www/html
+    echo "# folder /var/www/html created"
+fi
+
+if [ ! -d "/var/lib/voiceipgui/passwd" ];then
+    mkdir /var/lib/voiceipgui/passwd
+fi
+
+if [ ! -d "/root/passwd" ];then
+    mkdir /root/passwd
+fi
+
+if [ ! -d "/var/lib/voiceipgui/$version" ];then
+    mkdir /var/lib/voiceipgui/$version
+fi
+
+if [ ! -d "/home/PlcmSpIp" ];then
+    useradd PlcmSpIp
+    echo "# PlcmSpIp user account created"
+fi
+
+echo "#
+# securing old ftp accounts"
+
+if [ -d "/home/PlcmSpIp" ];then
+    echo "# PlcmSpIp no-login set for account"
+    /usr/sbin/usermod -s /sbin/nologin PlcmSpIp 2>/dev/nul
+fi
+
+if [ -d "/home/plcm" ];then
+    echo "# plcm no-login set for account"
+    /usr/sbin/usermod -s /sbin/nologin plcm 2>/dev/nul
+fi
+
+if [ -d "/home/plcmspip" ];then
+    echo "# plcmspip no-login set for account"
+    /usr/sbin/usermod -s /sbin/nologin plcmspip 2>/dev/nul
+fi
+
+
+echo "# yum install dependencies"
+echo "#"
+
+yum --skip-broken -y install svn postfix libxml2-devel libxml2 vsftpd gcc gcc-c++ openssl-devel kernel-headers kernel-devel httpd libtermcap-devel ncurses ncurses-devel finger doxygen curl-devel newt-devel nx freenx mlocate gconf-editor tar wget nmap ntp unixODBC* mysql-connector-odbc* libtool-ltdl libtool-ltdl-devel mysql-connector-odbc mysql mysql-devel mysql-server php php-pear php-mysql php-gd php-mbstring php-mcrypt flex screen libxml2 libxml2-devel libtiff libtiff-devel gmime gmime-devel net-snmp-utils net-snmp-devel libxml2 openssl openssl-devel gnutls-devel gnutls-utils
+yum --skip-broken -y remove gnome-bluetooth sendmail
+
+#yum --skip-broken -y groupremove games graphics "Tajik Support" "Russian Support" "Myanmar (Burmese) Support" "Myanmar (Burmese) Support" "Korean Support" "Konkani Support" "Khmer Support" "Japanese Support" "Inuktitut Support" "Inuktitut Support" "Georgian Support" "Ethiopic Support" "Bhutanese Support" "Armenian Support" "Arabic Support" 
+
+echo "#"
+httpd_check=$(cat /etc/httpd/conf/httpd.conf|grep "voiceipgui")
+if [ -z "$httpd_check" ];then
+    echo "# httpd: updating httpd.conf with include statement"
+    echo "include /etc/httpd/conf/httpd.voiceipgui.conf" >> /etc/httpd/conf/httpd.conf
+fi
+
+echo "# httpd: copying include file to /etc/httpd/conf/httpd.voiceipgui.conf"
+httpd_include='
+<Directory "/var/lib/voiceipgui/voiceipguiversion/">
+    AllowOverride All
+    Require all granted
+</Directory>
+
+<Directory /var/www/html/>
+RewriteEngine on
+RewriteBase /
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.php?$1 [L]
+</Directory>
+
+<IfModule alias_module>
+Alias "/voiceip/operators/panel" "/var/lib/voiceipgui/voiceipguiversion/modules/panel_html"
+Alias "/voiceip/graphics" "/var/lib/voiceipgui/voiceipguiversion/modules/graphics"
+Alias "/voiceip/statistics" "/var/lib/voiceipgui/voiceipguiversion/modules/statistics"
+Alias "/voiceip/style.css" "/var/lib/voiceipgui/voiceipguiversion/modules/lib/style.css"
+Alias "/index.php" "/var/lib/voiceipgui/voiceipguiversion/modules/lib/index.php"
+</IfModule>
+'
+newop=$(echo "$httpd_include" | sed -e "s/voiceipguiversion/$version/g;")
+echo "$newop" > /etc/httpd/conf/httpd.voiceipgui.conf
+
+
+echo "# php.ini short_open_tag = On"
+newop=$(cat /etc/php.ini | sed -e "s/short_open_tag = Off/short_open_tag = On/g;")
+echo "$newop" > /etc/php.ini
+
+echo "# demo account disabled"
+
+
+perl -p -i -e 's/\[demo\]\n/;\[demo\]\n;/g' /etc/asterisk/iax.conf
+
+perl -p -i -e 's/username=asterisk\n/;username=asterisk\n;/g' /etc/asterisk/iax.conf
+
+perl -p -i -e 's/secret=supersecret\n/secret=supersecret\n;/g' /etc/asterisk/iax.conf
+
+
+
+echo "# services: set to autostart"
+
+chkconfig --levels 345 postfix on;
+chkconfig --levels 345 mysqld on;
+chkconfig --levels 345 httpd on;
+chkconfig --levels 345 asterisk on;
+chkconfig --levels 345 vsftpd on;
+chkconfig --levels 345 op_panel on;
+chkconfig --levels 345 network on;
+
+chkconfig --levels 2345 cups off;
+chkconfig --levels 2345 bluetooth off 2>/dev/null;
+
+
+echo "# services: starting"
+echo "#"
+
+/sbin/service mysqld restart
+/sbin/service httpd restart
+/sbin/service vsftpd restart
+/sbin/service postfix restart
+echo "#"
+
+
+function check_mysql_root_pass() 
+{
+    var1=$(echo "show databases"|mysql -uroot -p$1 2>/dev/nul|grep -c Database )
+    if [[ $var1 > "0" ]];then
+        echo y
+    else
+        echo n
+    fi
+}
+
+function check_mysql_root_pass_blank() 
+{
+    var1=$(echo "show databases"|mysql -uroot 2>/dev/nul|grep -c Database )
+    if [[ $var1 > "0" ]];then
+        echo blank
+    else
+        echo set
+    fi
+}
+
+function mysql_root_pass_reset() 
+{
+    service mysqld stop;
+    sleep 5
+    mysqld_safe --skip-grant-tables &
+    sleep 5
+    
+    echo "UPDATE mysql.user SET Password=PASSWORD('$1') WHERE User='root';FLUSH PRIVILEGES;"|mysql -uroot
+
+    mysqld_safe stop;
+    sleep 5
+    service mysqld restart
+}
+
+
+### check if no mysql root password set
+
+if [[ `check_mysql_root_pass_blank` = "blank" ]];then
+    echo "# generating mysql root password, stored in: /root/passwd/mysql-root"
+    pass_mysql=$(/bin/dd if=/dev/urandom count=128 bs=1 2>&1 | /usr/bin/md5sum | /usr/bin/cut -b-20)
+    echo $pass_mysql > /root/passwd/mysql-root
+    echo $pass_mysql > /var/lib/voiceipgui/passwd/mysql-root
+    mysqladmin password $pass_mysql
+else 
+    echo "# mysql root password already set"
+fi
+
+
+### check if saved mysql root password is empty: /var/lib/voiceipgui/passwd/mysql-root
+
+file_pass_mysql=$(cat /var/lib/voiceipgui/passwd/mysql-root 2>/dev/nul)
+if [ ! -z "$file_pass_mysql" ];then
+
+    echo "# mysql root password file (/var/lib/voiceipgui/passwd/mysql-root) has previous value"
+
+    # if not empty, check if saved mysql root password is accurate
+    if [[ `check_mysql_root_pass $file_pass_mysql` = "y" ]];then
+        echo "# mysql root password obtained from config file"
+        pass_mysql="$file_pass_mysql"
+        if [ ! -e "/root/passwd/mysql-root" ];then
+            echo $pass_mysql > /root/passwd/mysql-root
+        fi
+    else
+        echo "# mysql root password incorrect in config file (/var/lib/voiceipgui/passwd/mysql-root)"
+        echo "# resetting mysql root password"
+        pass_mysql=$(/bin/dd if=/dev/urandom count=128 bs=1 2>&1 | /usr/bin/md5sum | /usr/bin/cut -b-20)
+        echo $pass_mysql > /root/passwd/mysql-root
+        echo $pass_mysql > /var/lib/voiceipgui/passwd/mysql-root
+        mysql_root_pass_reset $pass_mysql
+        echo "# new mysql root password: $pass_mysql"
+    fi
+else
+    echo "# mysql root password file is empty"
+    pass_mysql=$(/bin/dd if=/dev/urandom count=128 bs=1 2>&1 | /usr/bin/md5sum | /usr/bin/cut -b-20)
+    echo $pass_mysql > /root/passwd/mysql-root
+    echo $pass_mysql > /var/lib/voiceipgui/passwd/mysql-root
+    mysql_root_pass_reset $pass_mysql
+    echo "# new mysql root password: $pass_mysql"
+fi
+
+
+# copy packages
+
+#cp -rf `pwd`"/html/" /var/lib/voiceipgui/$version/
+cp -rf /usr/src/$version/* /var/lib/voiceipgui/$version/
+
+echo "# packages installed to: /var/lib/voiceipgui/$version/"
+
+
+if [ `grep -c "voiceipgui" /etc/asterisk/manager.conf` -lt "1" ];then
+    echo "# adding include to manager.conf, gui ami connection"
+    echo "#include /etc/asterisk/manager.voiceipgui.conf" >> /etc/asterisk/manager.conf
+    else 
+    echo "# manager.conf include already present"
+fi
+
+
+pass_cdr=$(/bin/dd if=/dev/urandom count=128 bs=1 2>&1 | /usr/bin/md5sum | /usr/bin/cut -b-20)
+pass_voiceprov=$(/bin/dd if=/dev/urandom count=128 bs=1 2>&1 | /usr/bin/md5sum | /usr/bin/cut -b-20)
+pass_manager=$(/bin/dd if=/dev/urandom count=128 bs=1 2>&1 | /usr/bin/md5sum | /usr/bin/cut -b-20)
+
+echo $pass_cdr > /var/lib/voiceipgui/passwd/mysql-cdr
+echo $pass_voiceprov > /var/lib/voiceipgui/passwd/mysql-voiceprov
+echo $pass_manager > /var/lib/voiceipgui/passwd/asterisk-manager
+
+echo $pass_cdr > /root/passwd/mysql-cdr
+echo $pass_voiceprov > /root/passwd/mysql-voiceprov
+echo $pass_manager > /root/passwd/asterisk-manager
+
+echo "# system authentication keys generated"
+
+
+# Asterisk AMI connection
+
+echo "[voiceipgui]
+secret = $pass_manager
+;deny=0.0.0.0/0.0.0.0
+;permit=0.0.0.0/255.255.255.0
+permit=127.0.0.1/255.255.255.0
+read = system,call,log,verbose,agent,user,config,dtmf,reporting,cdr,dialplan
+write = system,call,agent,user,config,command,reporting,originate" > /etc/asterisk/manager.voiceipgui.conf
+
+echo "# asterisk manager: manager.voiceipgui.conf updated with new password"
+
+if [[ `grep -c "manager.voiceipgui.conf" /etc/asterisk/manager.conf` < "1" ]];then
+    echo "#include /etc/asterisk/manager.voiceipgui.conf" >> /etc/asterisk/manager.conf
+fi
+
+
+
+
+# asterisk stats include file
+
+echo "[global] 
+hostname=127.0.0.1
+dbname=cdr_db  
+table=cdr
+password=$pass_cdr
+user=cdr_user     
+port=3306 
+userfield=1" > /etc/asterisk/cdr_mysql.conf
+
+echo "# cdr_mysql.conf updated with new password"
+
+
+
+/var/lib/voiceipgui/$version/modules/lib/database_import_previous.bash -v "$version"
+/var/lib/voiceipgui/$version/modules/lib/database_update.bash -v "$version"
+/var/lib/voiceipgui/$version/modules/lib/database_update_cdr.bash -v "$version"
+/var/lib/voiceipgui/$version/modules/lib/database_install_default_settings.bash -v "$version"
+
+
+# asterisk stats database
+echo "# asterisk stats: updating $cdb_name password"
+
+echo "GRANT ALL PRIVILEGES
+  ON cdr_db.* 
+  TO cdr_user@localhost 
+  IDENTIFIED BY '$pass_cdr';
+\q;
+"|mysql -uroot -p$pass_mysql;
+
+
+
+echo "# voiceipgui: update current version in active.version"
+echo $versionnumber > /var/lib/voiceipgui/active.version
+
+echo "# voiceipgui: chown apache /var/lib/voiceipgui/$version/modules/upload"
+chown apache /var/lib/voiceipgui/$version/modules/upload
+
+echo "# voiceipgui: chown apache /var/lib/voiceipgui/$version/modules/backup"
+chown apache /var/lib/voiceipgui/$version/modules/backup
+
+
+echo "# cdr database: updating new password"
+perl -p -i -e "s#\"PASS\", \"[a-zA-Z0-9_\.]*[a-zA-Z0-9_\.]\"#\"PASS\", \"$pass_cdr\"#g;s#/voiceipgui-[a-zA-Z0-9_\.]*[a-zA-Z0-9_\.]/#/$version/#g;" /var/lib/voiceipgui/$version/modules/statistics/lib/defines.php
+
+
+echo "# voiceipgui: /var/lib/voiceipgui/$version/modules/upload/bulk_data.csv"
+touch /var/lib/voiceipgui/$version/modules/upload/bulk_data.csv
+chown apache /var/lib/voiceipgui/$version/modules/upload/bulk_data.csv
+
+echo "# voiceipgui: chown -R apache /var/lib/voiceipgui/$version/modules/output/"
+chown -R apache /var/lib/voiceipgui/$version/modules/output/
+
+echo "# voiceipgui: chown apache /etc/asterisk/cid.auto.conf"
+touch /etc/asterisk/cid.auto.conf
+chown apache /etc/asterisk/cid.auto.conf
+
+echo "# voiceipgui: chown apache /etc/asterisk/did.auto.conf"
+touch /etc/asterisk/did.auto.conf
+chown apache /etc/asterisk/did.auto.conf
+
+
+echo "# voiceipgui: chown apache /etc/asterisk/iax.auto.conf"
+touch /etc/asterisk/iax.auto.conf
+chown apache /etc/asterisk/iax.auto.conf
+
+echo "# voiceipgui: chown apache /etc/asterisk/sip.auto.conf"
+touch /etc/asterisk/sip.auto.conf
+chown apache /etc/asterisk/sip.auto.conf
+
+echo "# voiceipgui: chown apache /etc/asterisk/voicemail.conf"
+chown apache /etc/asterisk/voicemail.conf
+
+echo "# voiceipgui: chmod 777 /home/PlcmSpIp/"
+chmod 777 /home/PlcmSpIp/
+
+
+echo "# voiceipgui: chown apache /home/PlcmSpIp/*phone.cfg"
+chown apache /home/PlcmSpIp/*phone.cfg
+
+echo "# updating vsftpd.log"
+touch /var/log/vsftpd.log
+chmod 755 /var/log/vsftpd.log
+
+
+
+# ODBC
+dbpassword=`cat /var/lib/voiceipgui/passwd/mysql-voiceprov`
+
+echo "[asterisk-connector]
+driver = MySQL
+Database = $dbname
+Server = localhost
+Socket = /var/lib/mysql/mysql.sock
+User = voiceipgui_user
+Password = $dbpassword"  > /etc/odbc.ini
+
+echo "# odbc: updating file /etc/odbc.ini"
+
+
+
+echo "# op_panel: updating init script"
+newopinit=$(cat /var/lib/voiceipgui/$version/modules/panel/init/op_panel | perl -p -i -e "s#/voiceipgui-.*/modules#/$version/modules#g")
+echo "$newopinit" > /var/lib/voiceipgui/$version/modules/panel/init/op_panel
+cp /var/lib/voiceipgui/$version/modules/panel/init/op_panel /etc/init.d/op_panel
+
+
+
+
+
+chown apache /var/run/op_panel.pid
+
+touch /var/lock/subsys/op_server.pl
+
+chown apache /var/lock/subsys/op_server.pl
+
+
+echo "# op_panel: updating new password"
+newop=$(cat /var/lib/voiceipgui/$version/modules/panel/op_server.cfg | sed -e "s/manager_secret=[a-zA-Z0-9]*[a-zA-Z0-9]$/manager_secret=$pass_manager/g;")
+echo "$newop" > /var/lib/voiceipgui/$version/modules/panel/op_server.cfg
+
+
+echo "# op_panel: updating flash file location"
+newop=$(cat /var/lib/voiceipgui/$version/modules/panel/op_server.cfg | perl -p -i -e "s#/voiceipgui-.*/#/$version/modules/panel_html/#g")
+echo "$newop" > /var/lib/voiceipgui/$version/modules/panel/op_server.cfg
+
+
+echo "# op_panel: chown apache /var/lib/voiceipgui/voiceipgui-$versionnumber/modules/panel/op_buttons.cfg"
+chown apache /var/lib/voiceipgui/voiceipgui-$versionnumber/modules/panel/op_buttons.cfg
+
+echo "# op_panel: chown apache /var/lib/voiceipgui/voiceipgui-$versionnumber/modules/panel/op_server.pl"
+chown apache /var/lib/voiceipgui/voiceipgui-$versionnumber/modules/panel/op_server.pl
+
+
+#echo "# op_panel: generating panel from database"
+#/usr/bin/php /var/lib/voiceipgui/voiceipgui-$versionnumber/modules/lib/generate_operator.php
+
+
+echo "# op_panel: restarting service"
+echo "#"
+
+/sbin/service op_panel restart
+service mysqld restart
+echo "#"
+
+
+
+#echo "# gconftool-2: setting folder options"
+
+#gconftool-2 --type=bool --set /apps/nautilus/preferences/always_use_location_entry true
+#gconftool-2 --type=string --set /apps/nautilus/preferences/default_folder_viewer list_view
+#gconftool-2 --type=string --set /apps/nautilus/list_view/default_visible_columns [name,permissions,owner,group,date_modified,date_accessed,size,type,where]
+#gconftool-2 --type=string --set /apps/nautilus/list_view/default_column_order [name,permissions,owner,group,date_modified,date_accessed,size,type,where]
+#gconftool-2 --type=string --set /apps/gedit-2/preferences/editor/colors/scheme oblivion
+
+
+
+
+echo "# asterisk manager: enabled = yes"
+sed -i 's/enabled = no/enabled = yes/g' /etc/asterisk/manager.conf
+
+echo "# asterisk manager: webenabled = yes"
+sed -i 's/webenabled = no/webenabled = yes/g' /etc/asterisk/manager.conf
+
+
+exten_addon_check=$(cat /etc/asterisk/iax.conf|grep "iax.auto.conf")
+if [ -z "$exten_addon_check" ];then
+    echo "# asterisk: updating iax.conf with include statement"
+    echo "#include iax.auto.conf" >> /etc/asterisk/iax.conf
+fi
+
+
+exten_addon_check=$(cat /etc/asterisk/extensions.conf|grep "extensions.voiceipgui.conf")
+if [ -z "$exten_addon_check" ];then
+    echo "# asterisk: updating extensions.conf with extensions.voiceipgui.conf include statement"
+    echo "#include /etc/asterisk/extensions.voiceipgui.conf" >> /etc/asterisk/extensions.conf
+fi
+
+
+exten_addon_check=$(cat /etc/asterisk/sip.conf|grep "sip.auto.conf")
+if [ -z "$exten_addon_check" ];then
+    echo "# asterisk: updating sip.conf with sip.auto.conf include statement"
+    echo "#include sip.auto.conf" >> /etc/asterisk/sip.conf
+fi
+
+
+exten_addon_check=$(cat /etc/asterisk/extensions.conf|grep "did.auto.conf")
+if [ -z "$exten_addon_check" ];then
+    echo "# asterisk: updating extensions.conf with did.auto.conf include statement"
+    perl -p -i -e "s#\[from-pstn\]#\[from-pstn\]\\n\#include /etc/asterisk/did\.auto\.conf#g;" /etc/asterisk/extensions.conf
+fi
+
+
+echo "# op_panel: [reload_operator] config"
+
+echo "[reload_operator]
+exten => s,1,system(service op_panel restart)" > /etc/asterisk/extensions.voiceipgui.conf
+
+sleep 4
+
+echo "# asterisk: asterisk bash command"
+echo "#"
+asterisk 2> /dev/nul
+echo "#"
+
+sleep 2
+
+echo "# asterisk: cli reload"
+asterisk -rx "reload"
+
+
+echo "#"
+echo "#"
+echo "# installer completed"
+echo "#"
+
+#echo "# asterisk: cli module reload"
+#asterisk -rx "module reload" 2> /dev/nul
